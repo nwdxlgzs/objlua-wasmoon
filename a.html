@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <div id="app"></div>
+    <!-- 内联 Lua 脚本 -->
+    <script type="application/lua">
+        print("Hello from inline Lua!")
+        for i = 1, 3 do
+            print("Counting:", i)
+        end
+        print(document.title)
+    </script>
+    <script src="a.lua" type="application/lua"></script>
+    <script type="module">
+        import { LUAI_MAXSTACK, LUA_MULTRET, LUA_REGISTRYINDEX, LuaEngine, LuaFactory, LuaGlobal, LuaType } from './index.js';
+        const factory = new LuaFactory()
+        const lua = await factory.createEngine()
+        try {
+            lua.global.set('window', window)
+            lua.global.set('document', document)
+            // 执行内联 Lua 脚本
+            await Promise.all(
+                Array.from(document.querySelectorAll('script[type="application/lua"]:not([src])'))
+                    .map(async (script) => {
+                        const code = script.textContent;
+                        await lua.doString(code);
+                    })
+            );
+            // 加载并执行外部 Lua 脚本
+            const externalScripts = document.querySelectorAll('script[type="application/lua"][src]');
+            for (const script of externalScripts) {
+                try {
+                    const response = await fetch(script.src);
+                    const luaCode = await response.text();
+                    await lua.doString(luaCode);
+                } catch (err) {
+                    console.error("加载 Lua 脚本失败:", err);
+                }
+            }
+        } finally {
+            lua.global.close()
+        }
+    </script>
+</body>
+
+</html>
